@@ -3,35 +3,44 @@
 // the local one to Ulanzi Studio.
 import UlanzideckApi from "../libs/node/ulanzideckApi.js";
 import { renderDial } from "./render.js";
-import { CONTROLS, REAR_CHANNELS, STEP, change } from "./volume.js";
+import { CONTROLS, REAR_DEFAULTS, STEP, change, listDevices } from "./volume.js";
 
 const appId = "com.replica.ulanzideck.speakers";
 
-// context -> { control, channels, active }; the control is the last part of the
-// action UUID, and the channels are a Rear dial's setting.
+// context -> { control, settings, active }; the control is the last part of the
+// action UUID, and the settings are a Rear dial's device, channels and label.
 const dials = {};
 
 function dial(context) {
   if (!dials[context]) {
     const control = $UD.decodeContext(context).uuid.split(".").pop();
-    dials[context] = { control: CONTROLS[control] ? control : "volume", channels: REAR_CHANNELS, active: true };
+    dials[context] = { control: CONTROLS[control] ? control : "volume", settings: REAR_DEFAULTS, active: true };
   }
   return dials[context];
 }
 
-// Takes the channels from a dial's settings, if they have a valid list.
+// Takes the device, channels and label from a dial's settings, keeping the
+// current value of any that are missing or invalid.
 function applySettings(context, settings) {
-  const channels = [...new Set((settings?.channels || []).map(Number))]
-    .filter((ch) => Number.isInteger(ch) && ch >= 0 && ch <= 7)
+  if (!settings) return false;
+  const d = dial(context);
+  const channels = [...new Set((settings.channels || []).map(Number))]
+    .filter((ch) => Number.isInteger(ch) && ch >= 0 && ch <= 31)
     .sort((a, b) => a - b);
-  if (!channels.length) return false;
-  dial(context).channels = channels;
+  const label = typeof settings.label === "string" ? settings.label.trim() : "";
+  const next = {
+    device: typeof settings.device === "string" && settings.device ? settings.device : d.settings.device,
+    channels: channels.length ? channels : d.settings.channels,
+    label: label || (typeof settings.label === "string" ? REAR_DEFAULTS.label : d.settings.label),
+  };
+  if (JSON.stringify(next) === JSON.stringify(d.settings)) return false;
+  d.settings = next;
   return true;
 }
 
-// What a dial controls: its control, plus the channels for a Rear dial.
+// What a dial controls: its control, plus the settings for a Rear dial.
 function source(d) {
-  return d.control === "rear" ? `rear:${d.channels}` : d.control;
+  return d.control === "rear" ? `rear:${JSON.stringify(d.settings)}` : d.control;
 }
 
 function draw(src, reading) {
@@ -45,7 +54,7 @@ function draw(src, reading) {
 function show(control) {
   const shown = new Map();
   for (const d of Object.values(dials)) if (d.active && d.control === control) shown.set(source(d), d);
-  for (const [src, d] of shown) CONTROLS[control].read(d.channels).then((reading) => draw(src, reading));
+  for (const [src, d] of shown) CONTROLS[control].read(d.settings).then((reading) => draw(src, reading));
 }
 
 const $UD = new UlanzideckApi();
@@ -56,9 +65,16 @@ $UD.onAdd(({ context, param }) => {
   show(dial(context).control);
 });
 
-// The Rear dial's settings page sends the channels picked; Studio saves them
-// as the dial's settings too.
-$UD.on("sendToPlugin", ({ context, payload }) => {
+// The Rear dial's settings page asks for the output devices, and sends the
+// settings picked; Studio saves them as the dial's settings too.
+$UD.on("sendToPlugin", async ({ context, payload = {} }) => {
+  if (payload.__type === "get-devices") {
+    $UD.send("sendToPropertyInspector", {
+      ...$UD.decodeContext(context),
+      payload: { __type: "devices", devices: await listDevices(), settings: dial(context).settings },
+    });
+    return;
+  }
   if (applySettings(context, payload)) show(dial(context).control);
 });
 
@@ -79,7 +95,7 @@ $UD.onClear(({ param = [] }) => {
 $UD.on("dialrotate", ({ context, rotateEvent = "" }) => {
   const d = dial(context);
   const src = source(d);
-  change(src, d.control, rotateEvent.includes("left") ? -STEP : STEP, d.channels).then((reading) => {
+  change(src, d.control, rotateEvent.includes("left") ? -STEP : STEP, d.settings).then((reading) => {
     if (reading !== undefined) draw(src, reading);
   });
 });

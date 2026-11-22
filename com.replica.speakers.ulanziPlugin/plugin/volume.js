@@ -2,18 +2,30 @@
 // Windows changes it and shows its own volume pop-up; the others use NirSoft
 // SoundVolumeView, which also reads every level back.
 import { execFile, spawn } from "child_process";
+import fs from "fs";
 import readline from "readline";
+import { fileURLToPath } from "url";
 
 import Utils from "../libs/node/utils.js";
 
-const SOUND_VOLUME_VIEW = "C:\\development\\sound\\SoundVolumeView.exe";
-const SPEAKERS = "High Definition Audio Device\\Device\\Speakers\\Render";
+// SoundVolumeView.exe in the plugin's folder, else in C:\development\sound,
+// else wherever PATH finds it.
+const SOUND_VOLUME_VIEW =
+  [fileURLToPath(new URL("../SoundVolumeView.exe", import.meta.url)), "C:\\development\\sound\\SoundVolumeView.exe"].find(
+    (path) => fs.existsSync(path)
+  ) || "SoundVolumeView.exe";
 const WINDOWS_VOLUME = "DefaultRenderDevice"; // the taskbar volume: whichever output is the default
-export const REAR_CHANNELS = [4, 5]; // rear left, rear right; each Rear dial can pick its own
+// What a Rear dial uses until its settings say otherwise.
+export const REAR_DEFAULTS = {
+  device: WINDOWS_VOLUME,
+  channels: [4, 5], // rear left, rear right
+  label: "REAR",
+};
 const FOCUSED_APP = "focusedname"; // every instance of the app in front
 export const STEP = 2; // percent per dial click; also what one volume key press does
 
-// Resolves to SoundVolumeView's exit code and stdout (UTF-16), or null if it could not run.
+// Resolves to SoundVolumeView's exit code and stdout, or null if it could not
+// run. Stdout is UTF-16, except CSV exports, which are UTF-8 with a BOM.
 function run(...args) {
   return new Promise((resolve) =>
     execFile(
@@ -21,7 +33,8 @@ function run(...args) {
       args.map(String),
       { timeout: 10_000, windowsHide: true, encoding: "buffer" },
       (err, stdout) => {
-        const text = stdout.toString("utf16le").replace(/^\uFEFF/, "").trim();
+        const utf8 = stdout[0] === 0xef && stdout[1] === 0xbb && stdout[2] === 0xbf;
+        const text = stdout.toString(utf8 ? "utf8" : "utf16le").replace(/^\uFEFF/, "").trim();
         if (!err) return resolve({ code: 0, text });
         if (typeof err.code === "number") return resolve({ code: err.code, text });
         Utils.warn("SoundVolumeView failed:", err.message);
@@ -35,6 +48,43 @@ function run(...args) {
 async function percent(...args) {
   const result = await run(...args);
   return result === null ? null : result.code / 10;
+}
+
+// Splits CSV text into rows of fields, allowing quoted fields.
+function parseCsv(text) {
+  const rows = [[]];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') field += c, i++;
+      else if (c === '"') quoted = false;
+      else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") rows.at(-1).push(field), (field = "");
+    else if (c === "\n") rows.at(-1).push(field.replace(/\r$/, "")), (field = ""), rows.push([]);
+    else field += c;
+  }
+  rows.at(-1).push(field);
+  return rows;
+}
+
+// The active output devices: [{ id, name, channels, isDefault }], default first.
+export async function listDevices() {
+  const result = await run("/scomma", "");
+  if (!result?.text) return [];
+  const [head, ...rows] = parseCsv(result.text);
+  const col = (row, name) => row[head.indexOf(name)] || "";
+  return rows
+    .filter((r) => col(r, "Type") === "Device" && col(r, "Direction") === "Render" && col(r, "Device State") === "Active")
+    .map((r) => ({
+      id: col(r, "Command-Line Friendly ID"),
+      name: col(r, "Device Name"),
+      channels: Number(col(r, "Channels Count")) || 2,
+      isDefault: col(r, "Default") === "Render",
+    }))
+    .sort((a, b) => b.isDefault - a.isDefault);
 }
 
 // One hidden PowerShell that presses the volume keys. It reads lines like
@@ -81,20 +131,20 @@ function pressVolumeKeys(step) {
 const signed = (step) => (step > 0 ? `+${step}` : `${step}`);
 
 // Each control reads { label, level } (level null when unknown) and applies a
-// step in percent, positive or negative. Rear also takes the channels to use,
-// and shows the level of the first.
+// step in percent, positive or negative. Rear also takes its settings (device,
+// channels and label), and shows the level of the first channel.
 export const CONTROLS = {
   volume: {
     read: async () => ({ label: "VOLUME", level: await percent("/GetPercent", WINDOWS_VOLUME) }),
     apply: (step) => pressVolumeKeys(step),
   },
   rear: {
-    read: async (channels = REAR_CHANNELS) => ({
-      label: "REAR",
-      level: await percent("/GetPercentChannel", SPEAKERS, channels[0]),
+    read: async ({ device, channels, label } = REAR_DEFAULTS) => ({
+      label,
+      level: await percent("/GetPercentChannel", device, channels[0]),
     }),
-    apply: (step, channels = REAR_CHANNELS) =>
-      Promise.all(channels.map((ch) => run("/ChangeVolumeChannel", SPEAKERS, ch, signed(step)))),
+    apply: (step, { device, channels } = REAR_DEFAULTS) =>
+      Promise.all(channels.map((ch) => run("/ChangeVolumeChannel", device, ch, signed(step)))),
   },
   // Apps without an audio session have no name, and /GetPercent reports 0 for them.
   app: {
@@ -109,11 +159,11 @@ export const CONTROLS = {
 
 // Clicks that arrive while a change is still running are added up and applied
 // together, so a fast turn doesn't pile up work. Changes are grouped by source,
-// which tells apart Rear dials set to different channels. Resolves to the new
+// which tells apart Rear dials with different settings. Resolves to the new
 // reading, or undefined when the clicks were handed to a change in progress.
 const pending = {};
 const busy = {};
-export async function change(source, name, delta, channels) {
+export async function change(source, name, delta, settings) {
   const control = CONTROLS[name];
   pending[source] = (pending[source] || 0) + delta;
   if (busy[source]) return undefined;
@@ -121,10 +171,10 @@ export async function change(source, name, delta, channels) {
   while (pending[source]) {
     const step = pending[source];
     pending[source] = 0;
-    await control.apply(step, channels);
+    await control.apply(step, settings);
   }
   busy[source] = false;
-  return control.read(channels);
+  return control.read(settings);
 }
 
 // Close the key-press helper along with the plugin.

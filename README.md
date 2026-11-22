@@ -118,20 +118,30 @@ pixel font in `plugin/render.js`), so it needs no image libraries.
 - **Full Volume**: the normal Windows volume. The dial presses the keyboard
   volume keys (through one hidden PowerShell process), so Windows changes the
   volume and shows its own volume pop-up.
-- **Rear Volume**: chosen channels of
-  `High Definition Audio Device\Device\Speakers\Render`, rear left and rear
-  right (channels 4 and 5) by default. To change them, select the dial in
-  Ulanzi Studio and tick the channels under **Channels** in its settings. The
-  dial changes every ticked channel by the same step and shows the level of
-  the first. Each Rear dial can use different channels.
+- **Rear Volume**: chosen channels of an output device. By default it uses
+  rear left and rear right (channels 4 and 5) of the default output device,
+  and shows REAR. To change that, select the dial in Ulanzi Studio and use its
+  settings:
+  - **Label**: the name shown on the dial (letters, digits and a little
+    punctuation, up to 12 characters).
+  - **Device**: the output device; the list shows each one's channel count.
+  - **Channels**: tick the channels to change. They're named for the device's
+    speaker setup (for example 5.1 or 7.1).
+
+  The dial changes every ticked channel by the same step and shows the level of
+  the first. Each Rear dial has its own settings.
 - **Application Volume**: every instance of the app in front. The dial shows
   the app's name, or NO AUDIO when the app has no sound session.
 
 Each click changes the volume by 2%, and the dial shows the level. Pressing a
-dial re-reads it. Rear and app volume use NirSoft
-[SoundVolumeView](https://www.nirsoft.net/utils/sound_volume_view.html) from
-`C:\development\sound\`. The path, device, default channels and step are constants at
-the top of `plugin/volume.js`.
+dial re-reads it.
+
+Rear and app volume use NirSoft
+[SoundVolumeView](https://www.nirsoft.net/utils/sound_volume_view.html).
+Download it and put `SoundVolumeView.exe` in the plugin's folder
+(`%APPDATA%\Ulanzi\UlanziDeck\Plugins\com.replica.speakers.ulanziPlugin`). The
+plugin also finds it in `C:\development\sound\` or on your PATH. The step and
+the Rear dial's defaults are constants at the top of `plugin/volume.js`.
 
 ## System keys
 

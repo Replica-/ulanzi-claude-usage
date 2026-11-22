@@ -5,22 +5,36 @@
   <title>Rear Volume</title>
   <style>
     body { margin: 0; padding: 12px; background: #1e1f22; color: #ebebeb; font: 13px sans-serif; }
-    .title { margin-bottom: 8px; color: #b4b4b4; }
+    .title { margin: 12px 0 6px; color: #b4b4b4; }
+    .title:first-child { margin-top: 0; }
+    input[type="text"], select { box-sizing: border-box; width: 100%; padding: 6px; background: #2b2d31; color: #ebebeb; border: 1px solid #44464c; border-radius: 4px; }
     label { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
     .ch { color: #8c8c8c; margin-left: auto; }
     .note { margin-top: 10px; color: #8c8c8c; font-size: 12px; }
   </style>
 </head>
 <body>
+  <div class="title">Label</div>
+  <input type="text" id="label" maxlength="12" placeholder="REAR">
+
+  <div class="title">Device</div>
+  <select id="device"><option value="DefaultRenderDevice">Default output device</option></select>
+
   <div class="title">Channels</div>
   <div id="channels"></div>
   <div class="note">The dial changes every ticked channel by the same step, and shows the level of the first.</div>
 
   <script>
-    // Channel order of a Windows 7.1 speaker setup. A 5.1 setup has 0-5, where
-    // 4 and 5 are its rear (or side) speakers.
-    const CHANNELS = ["Front left", "Front right", "Center", "Subwoofer", "Rear left", "Rear right", "Side left", "Side right"];
-    const DEFAULT = [4, 5];
+    // Windows channel order for each speaker setup, by channel count. Other
+    // counts show plain channel numbers.
+    const LAYOUTS = {
+      1: ["Mono"],
+      2: ["Front left", "Front right"],
+      4: ["Front left", "Front right", "Rear left", "Rear right"],
+      6: ["Front left", "Front right", "Center", "Subwoofer", "Rear left", "Rear right"],
+      8: ["Front left", "Front right", "Center", "Subwoofer", "Rear left", "Rear right", "Side left", "Side right"],
+    };
+    const DEFAULT_DEVICE = "DefaultRenderDevice";
 
     // Talks to Ulanzi Studio directly over its local WebSocket. Studio passes
     // the connection details and this dial's ids in the page's query string.
@@ -30,43 +44,113 @@
       key: query.get("key") || "",
       actionid: query.get("actionid") || "",
     };
+    const labelInput = document.getElementById("label");
+    const deviceSelect = document.getElementById("device");
     const list = document.getElementById("channels");
-    list.innerHTML = CHANNELS.map(
-      (name, ch) => `<label><input type="checkbox" value="${ch}">${name}<span class="ch">${ch}</span></label>`
-    ).join("");
-    const boxes = [...list.querySelectorAll("input")];
     const ws = new WebSocket(`ws://${query.get("address") || "127.0.0.1"}:${query.get("port") || 3906}`);
+
+    let devices = [];
+    let settings = { device: DEFAULT_DEVICE, channels: [4, 5], label: "REAR" };
 
     function send(cmd, params) {
       ws.send(JSON.stringify({ cmd, ...ids, ...params }));
     }
 
-    function tick(channels) {
-      boxes.forEach((box) => (box.checked = channels.includes(Number(box.value))));
+    const escape = (s) => String(s).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+
+    // Channel count of the chosen device; 8 until the device list arrives.
+    function deviceChannels() {
+      const id = settings.device;
+      const device = id === DEFAULT_DEVICE ? devices.find((d) => d.isDefault) : devices.find((d) => d.id === id);
+      return device ? device.channels : 8;
     }
 
-    tick(DEFAULT);
+    // Channels to list: the device's, plus any ticked ones beyond them.
+    function channelCount() {
+      return Math.max(deviceChannels(), ...settings.channels.map((ch) => ch + 1));
+    }
 
-    ws.onopen = () => send("connected", { code: 0 });
+    function render() {
+      labelInput.value = settings.label === "REAR" ? "" : settings.label;
+
+      const def = devices.find((d) => d.isDefault);
+      const options = [[DEFAULT_DEVICE, `Default output device${def ? ` (${def.name})` : ""}`]];
+      for (const d of devices) options.push([d.id, `${d.name} (${d.channels} ch)`]);
+      if (!options.some(([id]) => id === settings.device)) options.push([settings.device, `${settings.device} (not found)`]);
+      deviceSelect.innerHTML = options.map(([id, name]) => `<option value="${escape(id)}">${escape(name)}</option>`).join("");
+      deviceSelect.value = settings.device;
+
+      const count = channelCount();
+      const names = LAYOUTS[count] || [];
+      list.innerHTML = Array.from({ length: count }, (_, ch) =>
+        `<label><input type="checkbox" value="${ch}"${settings.channels.includes(ch) ? " checked" : ""}>` +
+        `${names[ch] || `Channel ${ch}`}<span class="ch">${ch}</span></label>`
+      ).join("");
+    }
+
+    // Saved by Studio as the dial's settings, and passed on to the plugin.
+    function save() {
+      send("paramfromplugin", { param: settings });
+      send("sendToPlugin", { payload: settings });
+    }
+
+    function take(saved) {
+      if (!saved) return;
+      settings = {
+        device: saved.device || settings.device,
+        channels: Array.isArray(saved.channels) && saved.channels.length ? saved.channels.map(Number) : settings.channels,
+        label: saved.label || settings.label,
+      };
+    }
+
+    render();
+
+    ws.onopen = () => {
+      send("connected", { code: 0 });
+      send("sendToPlugin", { payload: { __type: "get-devices" } });
+    };
 
     ws.onmessage = (evt) => {
       const data = JSON.parse(evt.data);
-      if (data.cmd === "add" && data.param && Array.isArray(data.param.channels) && data.param.channels.length) {
-        tick(data.param.channels.map(Number));
+      if (data.cmd === "add") {
+        take(data.param);
+        render();
+      } else if (data.cmd === "sendToPropertyInspector" && data.payload && data.payload.__type === "devices") {
+        devices = data.payload.devices || [];
+        take(data.payload.settings);
+        render();
       }
     };
 
-    // Saved by Studio as the dial's settings, and passed on to the plugin. At
-    // least one channel stays ticked.
+    let labelTimer;
+    labelInput.oninput = () => {
+      clearTimeout(labelTimer);
+      labelTimer = setTimeout(() => {
+        settings.label = labelInput.value.trim() || "REAR";
+        save();
+      }, 400);
+    };
+
+    // A new device keeps the ticked channels it has, or falls back to its
+    // first two.
+    deviceSelect.onchange = () => {
+      settings.device = deviceSelect.value;
+      const count = deviceChannels();
+      const kept = settings.channels.filter((ch) => ch < count);
+      settings.channels = kept.length ? kept : [0, 1].filter((ch) => ch < count);
+      render();
+      save();
+    };
+
+    // At least one channel stays ticked.
     list.onchange = (evt) => {
-      const channels = boxes.filter((box) => box.checked).map((box) => Number(box.value));
+      const channels = [...list.querySelectorAll("input")].filter((box) => box.checked).map((box) => Number(box.value));
       if (!channels.length) {
         evt.target.checked = true;
         return;
       }
-      const settings = { channels };
-      send("paramfromplugin", { param: settings });
-      send("sendToPlugin", { payload: settings });
+      settings.channels = channels;
+      save();
     };
   </script>
 </body>
