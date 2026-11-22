@@ -1,0 +1,53 @@
+{
+  "Version": "1.0.0",
+  "Author": "Replica",
+  "Name": "System",
+  "Description": "Keys showing CPU usage, and NVIDIA GPU usage and temperature.",
+  "Icon": "assets/icons/icon.svg",
+  "Category": "System",
+  "CategoryIcon": "assets/icons/icon.svg",
+  "CodePath": "plugin/app.js",
+  "Type": "JavaScript",
+  "PrivateAPI": true,
+  "SupportedInMultiActions": false,
+  "UUID": "com.replica.ulanzideck.system",
+  "Actions": [
+    {
+      "Name": "CPU",
+      "Icon": "assets/icons/cpu.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/cpu.svg"
+        }
+      ],
+      "Tooltip": "CPU usage.",
+      "UUID": "com.replica.ulanzideck.system.cpu",
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "GPU",
+      "Icon": "assets/icons/gpu.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/gpu.svg"
+        }
+      ],
+      "Tooltip": "NVIDIA GPU usage and temperature.",
+      "UUID": "com.replica.ulanzideck.system.gpu",
+      "SupportedInMultiActions": false
+    }
+  ],
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.1"
+  }
+}

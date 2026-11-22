@@ -66,3 +66,35 @@ pixel font in `plugin/render.js`), so it needs no image libraries.
 - `libs/node/` is the Node.js helper library from Ulanzi's plugin SDK, copied
   unchanged.
 - `node_modules/ws` is [ws](https://github.com/websockets/ws), MIT licensed.
+
+## Speaker dials
+
+This repo also holds a second, unrelated plugin,
+`com.replica.speakers.ulanziPlugin`. Install it the same way, select a dial,
+and drag one of these from **Speakers**:
+
+- **Full Volume**: the normal Windows volume. The dial presses the keyboard
+  volume keys (through one hidden PowerShell process), so Windows changes the
+  volume and shows its own volume pop-up.
+- **Rear Volume**: rear left and rear right (channels 4 and 5) of
+  `High Definition Audio Device\Device\Speakers\Render`.
+- **Application Volume**: every instance of the app in front. The dial shows
+  the app's name, or NO AUDIO when the app has no sound session.
+
+Each click changes the volume by 2%, and the dial shows the level. Pressing a
+dial re-reads it. Rear and app volume use NirSoft
+[SoundVolumeView](https://www.nirsoft.net/utils/sound_volume_view.html) from
+`C:\development\sound\`. The path, device, channels and step are constants at
+the top of `plugin/volume.js`.
+
+## System keys
+
+A third plugin, `com.replica.system.ulanziPlugin`, adds two keys under
+**System**:
+
+- **CPU**: CPU usage, measured by the plugin from Windows' CPU counters.
+- **GPU**: NVIDIA GPU usage, with the temperature underneath, from
+  `nvidia-smi` (installed with the NVIDIA driver).
+
+They refresh every 2 seconds while on screen, and the bar turns amber from 50%
+and red from 80%.

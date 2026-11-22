@@ -1,0 +1,79 @@
+{
+  "Version": "1.0.0",
+  "Author": "Replica",
+  "Name": "Speakers",
+  "Description": "Dials for full volume, rear speaker volume and the focused app's volume, using NirSoft SoundVolumeView.",
+  "Icon": "assets/icons/icon.svg",
+  "Category": "Speakers",
+  "CategoryIcon": "assets/icons/icon.svg",
+  "CodePath": "plugin/app.js",
+  "Type": "JavaScript",
+  "PrivateAPI": true,
+  "SupportedInMultiActions": false,
+  "UUID": "com.replica.ulanzideck.speakers",
+  "Actions": [
+    {
+      "Name": "Full Volume",
+      "Icon": "assets/icons/volume.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/volume.svg"
+        }
+      ],
+      "Controllers": ["Encoder"],
+      "Encoder": {
+        "layout": "$UA1"
+      },
+      "Tooltip": "Turn to change the speaker volume.",
+      "UUID": "com.replica.ulanzideck.speakers.volume",
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "Rear Volume",
+      "Icon": "assets/icons/rear.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/rear.svg"
+        }
+      ],
+      "Controllers": ["Encoder"],
+      "Encoder": {
+        "layout": "$UA1"
+      },
+      "Tooltip": "Turn to change the rear speaker volume.",
+      "UUID": "com.replica.ulanzideck.speakers.rear",
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "Application Volume",
+      "Icon": "assets/icons/app.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/app.svg"
+        }
+      ],
+      "Controllers": ["Encoder"],
+      "Encoder": {
+        "layout": "$UA1"
+      },
+      "Tooltip": "Turn to change the volume of the app in front.",
+      "UUID": "com.replica.ulanzideck.speakers.app",
+      "SupportedInMultiActions": false
+    }
+  ],
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.1"
+  }
+}
