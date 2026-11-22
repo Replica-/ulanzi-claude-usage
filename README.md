@@ -89,12 +89,16 @@ the top of `plugin/volume.js`.
 
 ## System keys
 
-A third plugin, `com.replica.system.ulanziPlugin`, adds two keys under
+A third plugin, `com.replica.system.ulanziPlugin`, adds four keys under
 **System**:
 
 - **CPU**: CPU usage, measured by the plugin from Windows' CPU counters.
 - **GPU**: NVIDIA GPU usage, with the temperature underneath, from
   `nvidia-smi` (installed with the NVIDIA driver).
+- **RAM**: memory in use, with used and total GB underneath.
+- **Disk**: space used on a drive, with the free space underneath. Choose the
+  drive in the key's settings in Ulanzi Studio (C by default); each Disk key
+  can show a different drive.
 
 They refresh every 2 seconds while on screen, and the bar turns amber from 50%
 and red from 80%.

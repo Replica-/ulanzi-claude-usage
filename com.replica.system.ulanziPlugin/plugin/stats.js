@@ -1,6 +1,7 @@
 // CPU usage from Node's own CPU counters; GPU usage and temperature from
-// nvidia-smi, which comes with the NVIDIA driver.
+// nvidia-smi, which comes with the NVIDIA driver; RAM and disk space from Node.
 import { execFile } from "child_process";
+import fs from "fs";
 import os from "os";
 
 import Utils from "../libs/node/utils.js";
@@ -47,4 +48,44 @@ export function readGpu() {
       }
     )
   );
+}
+
+const GB = 1024 ** 3;
+
+// Used RAM, counting what Windows reports as available as free.
+export function readRam() {
+  const total = os.totalmem();
+  const used = total - os.freemem();
+  return {
+    label: "RAM",
+    level: (100 * used) / total,
+    sub: `${(used / GB).toFixed(1)}/${Math.round(total / GB)}G`,
+  };
+}
+
+// "412G" or, from 1000G up, "1.2T".
+function size(bytes) {
+  const gb = bytes / GB;
+  return gb < 1000 ? `${Math.round(gb)}G` : `${(gb / 1024).toFixed(1)}T`;
+}
+
+// Space used on a drive, with the free space underneath.
+export async function readDisk(drive) {
+  const label = `DISK ${drive}`;
+  try {
+    const { blocks, bavail, bsize } = await fs.promises.statfs(`${drive}:/`);
+    return { label, level: (100 * (blocks - bavail)) / blocks, sub: `${size(bavail * bsize)} FREE` };
+  } catch (err) {
+    Utils.warn(`Reading drive ${drive} failed:`, err.message);
+    return { label, level: null, sub: "" };
+  }
+}
+
+// Drive letters that currently have a file system.
+export async function listDrives() {
+  const letters = "CDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const found = await Promise.all(
+    letters.map((d) => fs.promises.statfs(`${d}:/`).then(() => d, () => null))
+  );
+  return found.filter(Boolean);
 }

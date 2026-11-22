@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Disk</title>
+  <style>
+    body { margin: 0; padding: 12px; background: #1e1f22; color: #ebebeb; font: 13px sans-serif; }
+    label { display: block; margin-bottom: 6px; color: #b4b4b4; }
+    select { width: 100%; padding: 6px; background: #2b2d31; color: #ebebeb; border: 1px solid #44464c; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <label for="drive">Drive</label>
+  <select id="drive"><option value="C">C:</option></select>
+
+  <script>
+    // Talks to Ulanzi Studio directly over its local WebSocket. Studio passes
+    // the connection details and this key's ids in the page's query string.
+    const query = new URLSearchParams(location.search);
+    const ids = {
+      uuid: query.get("uuid") || "com.replica.ulanzideck.system.disk",
+      key: query.get("key") || "",
+      actionid: query.get("actionid") || "",
+    };
+    const select = document.getElementById("drive");
+    const ws = new WebSocket(`ws://${query.get("address") || "127.0.0.1"}:${query.get("port") || 3906}`);
+
+    function send(cmd, params) {
+      ws.send(JSON.stringify({ cmd, ...ids, ...params }));
+    }
+
+    // Lists the drives, keeping the chosen one even if it isn't there now.
+    function showDrives(drives, drive) {
+      if (drive && !drives.includes(drive)) drives = [...drives, drive].sort();
+      select.innerHTML = drives.map((d) => `<option value="${d}">${d}:</option>`).join("");
+      if (drive) select.value = drive;
+    }
+
+    ws.onopen = () => {
+      send("connected", { code: 0 });
+      send("sendToPlugin", { payload: { __type: "get-drives" } });
+    };
+
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      if (data.cmd === "add" && data.param && data.param.drive) {
+        showDrives([...select.options].map((o) => o.value), data.param.drive);
+      } else if (data.cmd === "sendToPropertyInspector" && data.payload && data.payload.__type === "drives") {
+        showDrives(data.payload.drives, data.payload.drive);
+      }
+    };
+
+    // Saved by Studio as the key's settings, and passed on to the plugin.
+    select.onchange = () => {
+      const settings = { drive: select.value };
+      send("paramfromplugin", { param: settings });
+      send("sendToPlugin", { payload: settings });
+    };
+  </script>
+</body>
+</html>

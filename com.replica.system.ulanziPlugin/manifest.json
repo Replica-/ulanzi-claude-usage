@@ -2,7 +2,7 @@
   "Version": "1.0.0",
   "Author": "Replica",
   "Name": "System",
-  "Description": "Keys showing CPU usage, and NVIDIA GPU usage and temperature.",
+  "Description": "Keys showing CPU usage, NVIDIA GPU usage and temperature, RAM usage, and disk space used.",
   "Icon": "assets/icons/icon.svg",
   "Category": "System",
   "CategoryIcon": "assets/icons/icon.svg",
@@ -38,6 +38,35 @@
       ],
       "Tooltip": "NVIDIA GPU usage and temperature.",
       "UUID": "com.replica.ulanzideck.system.gpu",
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "RAM",
+      "Icon": "assets/icons/ram.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/ram.svg"
+        }
+      ],
+      "Tooltip": "Memory in use.",
+      "UUID": "com.replica.ulanzideck.system.ram",
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "Disk",
+      "Icon": "assets/icons/disk.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/disk.svg"
+        }
+      ],
+      "Tooltip": "Space used on a drive. Pick the drive in the key's settings.",
+      "UUID": "com.replica.ulanzideck.system.disk",
+      "PropertyInspectorPath": "property-inspector/disk.html",
       "SupportedInMultiActions": false
     }
   ],
