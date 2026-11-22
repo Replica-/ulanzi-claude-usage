@@ -1,0 +1,39 @@
+{
+  "Version": "1.0.0",
+  "Author": "Replica",
+  "Name": "Claude Usage",
+  "Description": "Shows your Claude 5-hour and weekly usage limits, read from Claude Code's local usage cache.",
+  "Icon": "assets/icons/icon.svg",
+  "Category": "Claude Usage",
+  "CategoryIcon": "assets/icons/icon.svg",
+  "CodePath": "plugin/app.js",
+  "Type": "JavaScript",
+  "PrivateAPI": true,
+  "SupportedInMultiActions": false,
+  "UUID": "com.replica.ulanzideck.claudeusage",
+  "Actions": [
+    {
+      "Name": "Usage Limits",
+      "Icon": "assets/icons/icon.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/key.svg"
+        }
+      ],
+      "Tooltip": "Claude 5-hour and weekly usage. Press to refresh.",
+      "UUID": "com.replica.ulanzideck.claudeusage.limits",
+      "SupportedInMultiActions": false
+    }
+  ],
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.1"
+  }
+}
