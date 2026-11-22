@@ -9,7 +9,7 @@ import Utils from "../libs/node/utils.js";
 const SOUND_VOLUME_VIEW = "C:\\development\\sound\\SoundVolumeView.exe";
 const SPEAKERS = "High Definition Audio Device\\Device\\Speakers\\Render";
 const WINDOWS_VOLUME = "DefaultRenderDevice"; // the taskbar volume: whichever output is the default
-const REAR_CHANNELS = [4, 5]; // rear left, rear right
+export const REAR_CHANNELS = [4, 5]; // rear left, rear right; each Rear dial can pick its own
 const FOCUSED_APP = "focusedname"; // every instance of the app in front
 export const STEP = 2; // percent per dial click; also what one volume key press does
 
@@ -81,16 +81,20 @@ function pressVolumeKeys(step) {
 const signed = (step) => (step > 0 ? `+${step}` : `${step}`);
 
 // Each control reads { label, level } (level null when unknown) and applies a
-// step in percent, positive or negative.
+// step in percent, positive or negative. Rear also takes the channels to use,
+// and shows the level of the first.
 export const CONTROLS = {
   volume: {
     read: async () => ({ label: "VOLUME", level: await percent("/GetPercent", WINDOWS_VOLUME) }),
     apply: (step) => pressVolumeKeys(step),
   },
   rear: {
-    read: async () => ({ label: "REAR", level: await percent("/GetPercentChannel", SPEAKERS, REAR_CHANNELS[0]) }),
-    apply: (step) =>
-      Promise.all(REAR_CHANNELS.map((ch) => run("/ChangeVolumeChannel", SPEAKERS, ch, signed(step)))),
+    read: async (channels = REAR_CHANNELS) => ({
+      label: "REAR",
+      level: await percent("/GetPercentChannel", SPEAKERS, channels[0]),
+    }),
+    apply: (step, channels = REAR_CHANNELS) =>
+      Promise.all(channels.map((ch) => run("/ChangeVolumeChannel", SPEAKERS, ch, signed(step)))),
   },
   // Apps without an audio session have no name, and /GetPercent reports 0 for them.
   app: {
@@ -104,22 +108,23 @@ export const CONTROLS = {
 };
 
 // Clicks that arrive while a change is still running are added up and applied
-// together, so a fast turn doesn't pile up work. Resolves to the new reading,
-// or undefined when the clicks were handed to a change in progress.
+// together, so a fast turn doesn't pile up work. Changes are grouped by source,
+// which tells apart Rear dials set to different channels. Resolves to the new
+// reading, or undefined when the clicks were handed to a change in progress.
 const pending = {};
 const busy = {};
-export async function change(name, delta) {
+export async function change(source, name, delta, channels) {
   const control = CONTROLS[name];
-  pending[name] = (pending[name] || 0) + delta;
-  if (busy[name]) return undefined;
-  busy[name] = true;
-  while (pending[name]) {
-    const step = pending[name];
-    pending[name] = 0;
-    await control.apply(step);
+  pending[source] = (pending[source] || 0) + delta;
+  if (busy[source]) return undefined;
+  busy[source] = true;
+  while (pending[source]) {
+    const step = pending[source];
+    pending[source] = 0;
+    await control.apply(step, channels);
   }
-  busy[name] = false;
-  return control.read();
+  busy[source] = false;
+  return control.read(channels);
 }
 
 // Close the key-press helper along with the plugin.

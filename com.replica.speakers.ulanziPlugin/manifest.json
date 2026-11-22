@@ -44,8 +44,9 @@
       "Encoder": {
         "layout": "$UA1"
       },
-      "Tooltip": "Turn to change the rear speaker volume.",
+      "Tooltip": "Turn to change the rear speaker volume. Pick the channels in the dial's settings.",
       "UUID": "com.replica.ulanzideck.speakers.rear",
+      "PropertyInspectorPath": "property-inspector/rear.html",
       "SupportedInMultiActions": false
     },
     {

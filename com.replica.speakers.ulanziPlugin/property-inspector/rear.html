@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rear Volume</title>
+  <style>
+    body { margin: 0; padding: 12px; background: #1e1f22; color: #ebebeb; font: 13px sans-serif; }
+    .title { margin-bottom: 8px; color: #b4b4b4; }
+    label { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+    .ch { color: #8c8c8c; margin-left: auto; }
+    .note { margin-top: 10px; color: #8c8c8c; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="title">Channels</div>
+  <div id="channels"></div>
+  <div class="note">The dial changes every ticked channel by the same step, and shows the level of the first.</div>
+
+  <script>
+    // Channel order of a Windows 7.1 speaker setup. A 5.1 setup has 0-5, where
+    // 4 and 5 are its rear (or side) speakers.
+    const CHANNELS = ["Front left", "Front right", "Center", "Subwoofer", "Rear left", "Rear right", "Side left", "Side right"];
+    const DEFAULT = [4, 5];
+
+    // Talks to Ulanzi Studio directly over its local WebSocket. Studio passes
+    // the connection details and this dial's ids in the page's query string.
+    const query = new URLSearchParams(location.search);
+    const ids = {
+      uuid: query.get("uuid") || "com.replica.ulanzideck.speakers.rear",
+      key: query.get("key") || "",
+      actionid: query.get("actionid") || "",
+    };
+    const list = document.getElementById("channels");
+    list.innerHTML = CHANNELS.map(
+      (name, ch) => `<label><input type="checkbox" value="${ch}">${name}<span class="ch">${ch}</span></label>`
+    ).join("");
+    const boxes = [...list.querySelectorAll("input")];
+    const ws = new WebSocket(`ws://${query.get("address") || "127.0.0.1"}:${query.get("port") || 3906}`);
+
+    function send(cmd, params) {
+      ws.send(JSON.stringify({ cmd, ...ids, ...params }));
+    }
+
+    function tick(channels) {
+      boxes.forEach((box) => (box.checked = channels.includes(Number(box.value))));
+    }
+
+    tick(DEFAULT);
+
+    ws.onopen = () => send("connected", { code: 0 });
+
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      if (data.cmd === "add" && data.param && Array.isArray(data.param.channels) && data.param.channels.length) {
+        tick(data.param.channels.map(Number));
+      }
+    };
+
+    // Saved by Studio as the dial's settings, and passed on to the plugin. At
+    // least one channel stays ticked.
+    list.onchange = (evt) => {
+      const channels = boxes.filter((box) => box.checked).map((box) => Number(box.value));
+      if (!channels.length) {
+        evt.target.checked = true;
+        return;
+      }
+      const settings = { channels };
+      send("paramfromplugin", { param: settings });
+      send("sendToPlugin", { payload: settings });
+    };
+  </script>
+</body>
+</html>
