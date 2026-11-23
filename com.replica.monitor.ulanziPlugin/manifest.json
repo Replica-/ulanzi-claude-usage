@@ -2,9 +2,9 @@
   "Version": "1.0.0",
   "Author": "Replica",
   "Name": "Monitor",
-  "Description": "A key that switches a monitor between two inputs over DDC/CI, and shows which one is on.",
+  "Description": "A key that switches a monitor between two inputs over DDC/CI, and a key that runs Panel Protect on an MSI OLED monitor and counts down.",
   "Icon": "assets/icons/icon.svg",
-  "Category": "Monitor",
+  "Category": "MSI Monitors",
   "CategoryIcon": "assets/icons/icon.svg",
   "CodePath": "plugin/app.js",
   "Type": "JavaScript",
@@ -25,6 +25,20 @@
       "Tooltip": "Press to switch the monitor between two inputs. Pick the inputs in the key's settings.",
       "UUID": "com.replica.ulanzideck.monitor.input",
       "PropertyInspectorPath": "property-inspector/input.html",
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "Panel Protect",
+      "Icon": "assets/icons/panel.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/panel.svg"
+        }
+      ],
+      "Tooltip": "Press to run Panel Protect (pixel refresh) on the MSI OLED monitor over USB. The key counts down 15 minutes; press again to clear it.",
+      "UUID": "com.replica.ulanzideck.monitor.panel",
       "SupportedInMultiActions": false
     }
   ],

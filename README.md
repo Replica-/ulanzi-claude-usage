@@ -4,14 +4,15 @@ Ulanzi Studio plugins for a Ulanzi Deck. The main one shows your Claude plan
 usage on a deck key: the 5-hour session limit and the weekly limit, each with a
 percentage, a bar, and a countdown to the reset.
 
-The repo also holds three unrelated plugins:
+The repo also holds four unrelated plugins:
 
 | Folder | Shows up in Ulanzi Studio as | What it does |
 | --- | --- | --- |
 | `com.replica.claudeusage.ulanziPlugin` | **Claude Usage** | Claude plan usage |
 | `com.replica.speakers.ulanziPlugin` | **Speakers** | Volume dials ([Speaker dials](#speaker-dials)) |
 | `com.replica.system.ulanziPlugin` | **System** | CPU, GPU, RAM and disk keys ([System keys](#system-keys)) |
-| `com.replica.monitor.ulanziPlugin` | **Monitor** | A key that switches the monitor's input ([Monitor input key](#monitor-input-key)) |
+| `com.replica.monitor.ulanziPlugin` | **MSI Monitors** | Keys that switch the monitor's input and run Panel Protect on an MSI OLED monitor ([Monitor keys](#monitor-keys)) |
+| `com.replica.power.ulanziPlugin` | **System** | Keys that turn the displays off and on, and shut the PC down ([Power keys](#power-keys)) |
 
 ![Key showing 5H 42% and 7D 87%](docs/key.png)
 
@@ -33,7 +34,9 @@ Some need more:
   [SoundVolumeView](https://www.nirsoft.net/utils/sound_volume_view.html)
   (see [Speaker dials](#speaker-dials)).
 - **System**: the GPU key needs an NVIDIA graphics card and driver.
-- **Monitor**: a monitor with DDC/CI turned on in its menu.
+- **MSI Monitors**: Switch Input needs a monitor with DDC/CI turned on in its
+  menu. Panel Protect needs an MSI OLED monitor with its USB upstream cable
+  to this PC.
 
 ## Install
 
@@ -54,8 +57,10 @@ The steps are the same for each plugin. Install only the ones you want.
      onto a dial.
    - **System → CPU**, **GPU**, **RAM** or **Disk** onto a key. For a Disk key,
      select it and choose the drive under **Drive** in its settings.
-   - **Monitor → Switch Input** onto a key. Select it and pick the two inputs
+   - **MSI Monitors → Switch Input** or **Panel Protect** onto a key. For a
+     Switch Input key, select it and pick the two inputs
      in its settings.
+   - **System → Display** or **Shut Down** onto a key.
 
 No `npm install` is needed: each plugin includes its one dependency (`ws`), and
 Ulanzi Studio supplies Node.js.
@@ -165,10 +170,13 @@ the Rear dial's defaults are constants at the top of `plugin/volume.js`.
 They refresh every 2 seconds while on screen, and the bar turns amber from 50%
 and red from 80%.
 
-## Monitor input key
+## Monitor keys
 
-`com.replica.monitor.ulanziPlugin` adds **Monitor → Switch Input** (see
-[Install](#install)). Pressing the key switches the monitor between two
+`com.replica.monitor.ulanziPlugin` adds two keys (see [Install](#install)).
+
+### Switch Input
+
+**MSI Monitors → Switch Input** switches the monitor between two
 inputs, and the key shows which one is on.
 
 <img src="docs/input-pc.png" width="120" alt="Input key showing PC"> <img src="docs/input-usbc.png" width="120" alt="Input key showing USB-C">
@@ -236,3 +244,52 @@ and to the first from any other input.
 Point a macro or a shortcut at it, and edit the two values to suit your
 monitor. For a keyboard shortcut, right-click a desktop shortcut to the file,
 choose **Properties**, and set **Shortcut key**.
+
+### Panel Protect
+
+**MSI Monitors → Panel Protect** starts Panel Protect (the pixel refresh) on an MSI
+OLED monitor, the same as starting it from MSI's app. When the monitor
+acknowledges it, the key counts down from 15:00 in green, the longest a run
+takes. The monitor doesn't report progress over USB, so a run can finish
+before the countdown does. Press the key during the countdown to clear it,
+for example after you stop the run on the monitor. The key shows NO USB in
+red when the monitor can't be reached.
+
+It goes over USB, not the video cable, so the monitor's USB upstream cable
+must go to this PC. It's built for the MPG 321URX QD-OLED (USB
+ID 1462:3FA4); other MSI OLED monitors may use a different ID or command.
+
+Panel Protect is `panel.ps1`, in the plugin's folder, and it runs on its own. `send` sends one
+raw command and prints the monitor's reply:
+
+```
+powershell -ExecutionPolicy Bypass -File panel.ps1 protect
+powershell -ExecutionPolicy Bypass -File panel.ps1 send 5800110
+```
+
+## Power keys
+
+`com.replica.power.ulanziPlugin` adds two keys (see [Install](#install)).
+
+**System → Display** turns the displays off, and a second press turns them
+back on. It does what Windows does when the PC sits idle: the video signal
+stops and the monitor goes to standby. Moving the mouse or pressing a key on
+the keyboard wakes the displays too, and the key follows that within 2
+seconds.
+
+DDC/CI can also turn a monitor off, but most monitors stop listening to
+DDC/CI while off, so it can't turn them back on. This key wakes any monitor
+that wakes when the signal comes back.
+
+**System → Shut Down** shuts the PC down 10 seconds after a press. The key
+counts down in red. Press it again during the countdown to cancel. Save
+your work first: the shutdown closes programs the same way the Start menu
+does.
+
+The display switch is a PowerShell script, `display.ps1`, in the plugin's
+folder. It also runs on its own:
+
+```
+powershell -ExecutionPolicy Bypass -File display.ps1 off
+powershell -ExecutionPolicy Bypass -File display.ps1 on
+```

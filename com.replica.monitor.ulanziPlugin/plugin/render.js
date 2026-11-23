@@ -9,6 +9,7 @@ const TRACK = [55, 55, 55];
 const GREEN = [63, 216, 138];
 const AMBER = [255, 176, 32];
 const BLUE = [80, 160, 255];
+const RED = [240, 70, 60];
 
 // 5x7 pixel font: digits, A-Z and a little punctuation.
 const FONT = {
@@ -23,6 +24,7 @@ const FONT = {
   "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
   "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
   "%": ["11000", "11001", "00010", "00100", "01000", "10011", "00011"],
+  ":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
   "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
   " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
   ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
@@ -158,5 +160,29 @@ export function renderInput(labelA, labelB, active, otherLabel = "") {
   canvas.text(labelA.slice(0, 7), 14, 156, 2, active === "a" ? WHITE : GREY);
   const right = labelB.slice(0, 7);
   canvas.text(right, SIZE - 14 - Canvas.textWidth(right, 2), 156, 2, active === "b" ? WHITE : GREY);
+  return canvas.toDataUrl();
+}
+
+// The Panel Protect key: PANEL PROTECT at rest; while it runs, the time
+// left in green over a bar that empties; NO USB in red when the monitor
+// didn't acknowledge the press.
+export function renderPanel(result, total) {
+  const canvas = new Canvas();
+  if (result === null) {
+    canvas.centeredText("PANEL", 52, 6, WHITE);
+    canvas.centeredText("PROTECT", 108, 4, WHITE);
+    return canvas.toDataUrl();
+  }
+  canvas.centeredText("PROTECT", 22, 3, GREY);
+  if (result === false) {
+    canvas.centeredText("NO USB", 80, 4, RED);
+    canvas.rect(14, 150, SIZE - 28, 12, RED);
+    return canvas.toDataUrl();
+  }
+  const time = `${Math.floor(result / 60)}:${String(result % 60).padStart(2, "0")}`;
+  canvas.centeredText(time, 70, 6, GREEN);
+  const width = SIZE - 28;
+  canvas.rect(14, 150, width, 12, TRACK);
+  canvas.rect(14, 150, Math.round((width * result) / total), 12, GREEN);
   return canvas.toDataUrl();
 }

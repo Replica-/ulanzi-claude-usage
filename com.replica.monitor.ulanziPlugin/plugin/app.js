@@ -1,9 +1,11 @@
-// Monitor input key: pressing it switches the monitor between two inputs over
-// DDC/CI, and the key shows which one is on. The only connection is the local
-// one to Ulanzi Studio.
+// Monitor keys: the input key switches the monitor between two inputs over
+// DDC/CI and shows which one is on; the Panel Protect key starts an MSI OLED
+// monitor's pixel refresh over USB and counts down. The only connections are
+// the local one to Ulanzi Studio and USB to the monitor.
 import UlanzideckApi from "../libs/node/ulanzideckApi.js";
 import { INPUT_NAMES, getInput, listMonitors, setInput } from "./ddc.js";
-import { DRAWABLE, renderInput } from "./render.js";
+import { PROTECT_S, pressProtect, stopProtect } from "./protect.js";
+import { DRAWABLE, renderInput, renderPanel } from "./render.js";
 
 const appId = "com.replica.ulanzideck.monitor";
 const REFRESH_MS = 3_000;
@@ -14,13 +16,17 @@ const MAX_LABEL = 8;
 // which is USB-C on some monitors. A monitor of "" is the first that answers.
 const DEFAULTS = { monitor: "", a: 0x0f, b: 0x10, labelA: "PC", labelB: "USB-C" };
 
-// context -> { settings, active, image }
+// context -> { action, settings, active, image, protect, timer }; the action
+// is "input" or "panel", the last part of the action UUID.
 const keys = {};
 // monitor name -> its last input, or null when it didn't answer
 const inputs = new Map();
 
 function key(context) {
-  keys[context] ??= { settings: { ...DEFAULTS }, active: true, image: "" };
+  if (!keys[context]) {
+    const action = $UD.decodeContext(context).uuid.split(".").pop() === "panel" ? "panel" : "input";
+    keys[context] = { action, settings: { ...DEFAULTS }, active: true, image: "", protect: null, timer: null };
+  }
   return keys[context];
 }
 
@@ -53,7 +59,9 @@ function applySettings(context, settings) {
   return true;
 }
 
-function image({ settings: s }) {
+function image(k) {
+  if (k.action === "panel") return renderPanel(k.protect, PROTECT_S);
+  const s = k.settings;
   const input = inputs.get(s.monitor);
   if (input === undefined || input === null) return renderInput(s.labelA, s.labelB, null);
   if (input === s.a) return renderInput(s.labelA, s.labelB, "a");
@@ -74,7 +82,7 @@ function draw(force) {
 
 // Each monitor is read once per refresh, however many keys show it.
 async function refresh(force) {
-  const monitors = new Set(Object.values(keys).filter((k) => k.active).map((k) => k.settings.monitor));
+  const monitors = new Set(Object.values(keys).filter((k) => k.active && k.action === "input").map((k) => k.settings.monitor));
   for (const monitor of monitors) inputs.set(monitor, await getInput(monitor));
   draw(force);
 }
@@ -129,9 +137,16 @@ $UD.onSetActive(({ context, active }) => {
 });
 
 $UD.onClear(({ param = [] }) => {
-  for (const { context } of param) delete keys[context];
+  for (const { context } of param) {
+    if (keys[context]) stopProtect(keys[context]);
+    delete keys[context];
+  }
 });
 
-$UD.onRun(({ context }) => toggle(context));
+$UD.onRun(({ context }) => {
+  const k = key(context);
+  if (k.action === "panel") pressProtect(k, () => draw(false));
+  else toggle(context);
+});
 
 setInterval(() => refresh(false), REFRESH_MS);
