@@ -1,0 +1,53 @@
+{
+  "Version": "1.0.0",
+  "Author": "Replica",
+  "Name": "Power",
+  "Description": "A key that turns the displays off and on, and a key that shuts the PC down after a countdown.",
+  "Icon": "assets/icons/icon.svg",
+  "Category": "System",
+  "CategoryIcon": "assets/icons/icon.svg",
+  "CodePath": "plugin/app.js",
+  "Type": "JavaScript",
+  "PrivateAPI": true,
+  "SupportedInMultiActions": false,
+  "UUID": "com.replica.ulanzideck.power",
+  "Actions": [
+    {
+      "Name": "Display",
+      "Icon": "assets/icons/display.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/display.svg"
+        }
+      ],
+      "Tooltip": "Press to turn the displays off, and again to turn them on.",
+      "UUID": "com.replica.ulanzideck.power.display",
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "Shut Down",
+      "Icon": "assets/icons/shutdown.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/shutdown.svg"
+        }
+      ],
+      "Tooltip": "Press to shut the PC down in 10 seconds. Press again to cancel.",
+      "UUID": "com.replica.ulanzideck.power.shutdown",
+      "SupportedInMultiActions": false
+    }
+  ],
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.1"
+  }
+}
