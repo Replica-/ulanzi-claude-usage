@@ -4,13 +4,14 @@ Ulanzi Studio plugins for a Ulanzi Deck. The main one shows your Claude plan
 usage on a deck key: the 5-hour session limit and the weekly limit, each with a
 percentage, a bar, and a countdown to the reset.
 
-The repo also holds two unrelated plugins:
+The repo also holds three unrelated plugins:
 
 | Folder | Shows up in Ulanzi Studio as | What it does |
 | --- | --- | --- |
 | `com.replica.claudeusage.ulanziPlugin` | **Claude Usage** | Claude plan usage |
 | `com.replica.speakers.ulanziPlugin` | **Speakers** | Volume dials ([Speaker dials](#speaker-dials)) |
 | `com.replica.system.ulanziPlugin` | **System** | CPU, GPU, RAM and disk keys ([System keys](#system-keys)) |
+| `com.replica.monitor.ulanziPlugin` | **Monitor** | A key that switches the monitor's input ([Monitor input key](#monitor-input-key)) |
 
 ![Key showing 5H 42% and 7D 87%](docs/key.png)
 
@@ -32,6 +33,7 @@ Some need more:
   [SoundVolumeView](https://www.nirsoft.net/utils/sound_volume_view.html)
   (see [Speaker dials](#speaker-dials)).
 - **System**: the GPU key needs an NVIDIA graphics card and driver.
+- **Monitor**: a monitor with DDC/CI turned on in its menu.
 
 ## Install
 
@@ -52,6 +54,8 @@ The steps are the same for each plugin. Install only the ones you want.
      onto a dial.
    - **System → CPU**, **GPU**, **RAM** or **Disk** onto a key. For a Disk key,
      select it and choose the drive under **Drive** in its settings.
+   - **Monitor → Switch Input** onto a key. Select it and pick the two inputs
+     in its settings.
 
 No `npm install` is needed: each plugin includes its one dependency (`ws`), and
 Ulanzi Studio supplies Node.js.
@@ -160,3 +164,75 @@ the Rear dial's defaults are constants at the top of `plugin/volume.js`.
 
 They refresh every 2 seconds while on screen, and the bar turns amber from 50%
 and red from 80%.
+
+## Monitor input key
+
+`com.replica.monitor.ulanziPlugin` adds **Monitor → Switch Input** (see
+[Install](#install)). Pressing the key switches the monitor between two
+inputs, and the key shows which one is on.
+
+<img src="docs/input-pc.png" width="120" alt="Input key showing PC"> <img src="docs/input-usbc.png" width="120" alt="Input key showing USB-C">
+
+Select the key in Ulanzi Studio to set it up:
+
+- **Monitor**: the monitor to switch, or the first one that answers.
+- **Input A** and **Input B**: the two inputs to switch between. The list
+  shows the inputs that the monitor reports, and marks the one that's on.
+- A **label** for each input, shown on the key (up to 8 letters or digits).
+
+A press switches to B from A, and to A from any other input. The key reads
+the input back every 3 seconds, so it follows a switch made with the
+monitor's buttons too. An input that is neither A nor B shows in amber.
+
+The plugin talks to the monitor over DDC/CI, the standard control channel
+in the video cable (DisplayPort or HDMI). Turn on **DDC/CI** in the
+monitor's on-screen menu if the key shows `--`.
+
+### Switching the KVM on an MSI monitor
+
+Many MSI monitors have a built-in KVM: the keyboard and mouse plugged into
+the monitor's USB ports follow the input on screen. Switching normally
+takes the monitor's joystick and menu. This key, or the script below, does
+it in one press instead.
+
+DDC/CI goes over the video cable, so it still reaches the monitor while it
+shows the other computer. The PC can switch to the other input and back
+again on its own, and the monitor's USB ports move with the picture.
+
+On an MSI MPG 321URX QD-OLED, connected to the PC over DisplayPort:
+
+| Value | Input |
+| --- | --- |
+| `0x0F` | DisplayPort (the PC) |
+| `0x10` | USB-C. The DDC/CI standard calls this value DisplayPort 2. |
+| `0x11` | HDMI 1 |
+| `0x12` | HDMI 2 |
+
+Other models can use other values. `ddc.ps1 list` shows the values that a
+monitor reports, and the input it's on.
+
+Keep the keyboard that triggers the switch on the PC, not on the monitor's
+USB ports. A keyboard on the monitor's ports goes to the other computer
+with the picture, so it can't switch back.
+
+### Without a Ulanzi Deck
+
+The switch is a PowerShell script, `ddc.ps1`, in the plugin's folder. It
+runs on its own, so any macro tool, keyboard macro key or desktop shortcut
+can switch inputs:
+
+```
+powershell -ExecutionPolicy Bypass -File ddc.ps1 list
+powershell -ExecutionPolicy Bypass -File ddc.ps1 get
+powershell -ExecutionPolicy Bypass -File ddc.ps1 set 0F
+powershell -ExecutionPolicy Bypass -File ddc.ps1 toggle 0F 10
+powershell -ExecutionPolicy Bypass -File ddc.ps1 toggle 0F 10 -Monitor "MSI MPG 321URX QD-OLED"
+```
+
+Input values are hex. `toggle` switches to the second input from the first,
+and to the first from any other input.
+
+`toggle-input.cmd`, next to the script, runs `toggle 0F 10` with no window.
+Point a macro or a shortcut at it, and edit the two values to suit your
+monitor. For a keyboard shortcut, right-click a desktop shortcut to the file,
+choose **Properties**, and set **Shortcut key**.

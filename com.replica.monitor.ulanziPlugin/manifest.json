@@ -1,0 +1,40 @@
+{
+  "Version": "1.0.0",
+  "Author": "Replica",
+  "Name": "Monitor",
+  "Description": "A key that switches a monitor between two inputs over DDC/CI, and shows which one is on.",
+  "Icon": "assets/icons/icon.svg",
+  "Category": "Monitor",
+  "CategoryIcon": "assets/icons/icon.svg",
+  "CodePath": "plugin/app.js",
+  "Type": "JavaScript",
+  "PrivateAPI": true,
+  "SupportedInMultiActions": false,
+  "UUID": "com.replica.ulanzideck.monitor",
+  "Actions": [
+    {
+      "Name": "Switch Input",
+      "Icon": "assets/icons/input.svg",
+      "state": 0,
+      "States": [
+        {
+          "Name": "normal",
+          "Image": "assets/icons/input.svg"
+        }
+      ],
+      "Tooltip": "Press to switch the monitor between two inputs. Pick the inputs in the key's settings.",
+      "UUID": "com.replica.ulanzideck.monitor.input",
+      "PropertyInspectorPath": "property-inspector/input.html",
+      "SupportedInMultiActions": false
+    }
+  ],
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.1"
+  }
+}

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Switch Input</title>
+  <style>
+    body { margin: 0; padding: 12px; background: #1e1f22; color: #ebebeb; font: 13px sans-serif; }
+    .title { margin: 12px 0 6px; color: #b4b4b4; }
+    .title:first-child { margin-top: 0; }
+    .row { display: flex; gap: 6px; }
+    .row select { flex: 2; }
+    .row input { flex: 1; min-width: 0; }
+    input[type="text"], select { box-sizing: border-box; width: 100%; padding: 6px; background: #2b2d31; color: #ebebeb; border: 1px solid #44464c; border-radius: 4px; }
+    .note { margin-top: 10px; color: #8c8c8c; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="title">Monitor</div>
+  <select id="monitor"><option value="">First monitor that answers</option></select>
+
+  <div class="title">Input A and its label</div>
+  <div class="row"><select id="a"></select><input type="text" id="labelA" maxlength="8" placeholder="PC"></div>
+
+  <div class="title">Input B and its label</div>
+  <div class="row"><select id="b"></select><input type="text" id="labelB" maxlength="8" placeholder="USB-C"></div>
+
+  <div class="note" id="status">Reading the monitors…</div>
+  <div class="note">A press switches to B from A, and to A from any other input. On some monitors, 0x10 is the USB-C input.</div>
+
+  <script>
+    // Talks to Ulanzi Studio directly over its local WebSocket. Studio passes
+    // the connection details and this key's ids in the page's query string.
+    const query = new URLSearchParams(location.search);
+    const ids = {
+      uuid: query.get("uuid") || "com.replica.ulanzideck.monitor.input",
+      key: query.get("key") || "",
+      actionid: query.get("actionid") || "",
+    };
+    const el = (id) => document.getElementById(id);
+    const ws = new WebSocket(`ws://${query.get("address") || "127.0.0.1"}:${query.get("port") || 3906}`);
+
+    let monitors = [];
+    let names = {};
+    let settings = { monitor: "", a: 0x0f, b: 0x10, labelA: "PC", labelB: "USB-C" };
+
+    function send(cmd, params) {
+      ws.send(JSON.stringify({ cmd, ...ids, ...params }));
+    }
+
+    const escape = (s) => String(s).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+    const hex = (n) => `0x${Number(n).toString(16).toUpperCase().padStart(2, "0")}`;
+
+    // The chosen monitor, or the first that answers.
+    function chosen() {
+      return monitors.find((m) => (settings.monitor ? m.name === settings.monitor : m.input >= 0));
+    }
+
+    function render() {
+      const options = [["", "First monitor that answers"], ...monitors.map((m) => [m.name, m.name])];
+      if (settings.monitor && !monitors.some((m) => m.name === settings.monitor)) {
+        options.push([settings.monitor, `${settings.monitor} (not found)`]);
+      }
+      el("monitor").innerHTML = options.map(([v, t]) => `<option value="${escape(v)}">${escape(t)}</option>`).join("");
+      el("monitor").value = settings.monitor;
+
+      // The inputs the monitor lists, else every standard one; the chosen
+      // values stay in the list either way.
+      const monitor = chosen();
+      const listed = monitor && monitor.inputs.length ? monitor.inputs : Object.keys(names).map(Number);
+      const values = [...new Set([...listed, settings.a, settings.b])].sort((x, y) => x - y);
+      for (const side of ["a", "b"]) {
+        el(side).innerHTML = values
+          .map((v) => {
+            const now = monitor && monitor.input === v ? ", on now" : "";
+            return `<option value="${v}">${hex(v)} ${escape(names[v] || "")}${now}</option>`;
+          })
+          .join("");
+        el(side).value = String(settings[side]);
+      }
+      el("labelA").value = settings.labelA;
+      el("labelB").value = settings.labelB;
+      el("status").textContent = monitor
+        ? `${monitor.name} is on ${hex(monitor.input)} ${names[monitor.input] || ""}.`
+        : "No monitor answered over DDC/CI. Turn DDC/CI on in the monitor's menu.";
+    }
+
+    // Saved by Studio as the key's settings, and passed on to the plugin.
+    function save() {
+      send("paramfromplugin", { param: settings });
+      send("sendToPlugin", { payload: settings });
+    }
+
+    function take(saved) {
+      if (!saved) return;
+      settings = {
+        monitor: typeof saved.monitor === "string" ? saved.monitor : settings.monitor,
+        a: Number(saved.a) || settings.a,
+        b: Number(saved.b) || settings.b,
+        labelA: saved.labelA || settings.labelA,
+        labelB: saved.labelB || settings.labelB,
+      };
+    }
+
+    ws.onopen = () => {
+      send("connected", { code: 0 });
+      send("sendToPlugin", { payload: { __type: "get-monitors" } });
+    };
+
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      if (data.cmd === "add") {
+        take(data.param);
+        render();
+      } else if (data.cmd === "sendToPropertyInspector" && data.payload && data.payload.__type === "monitors") {
+        monitors = data.payload.monitors || [];
+        names = data.payload.names || {};
+        take(data.payload.settings);
+        render();
+      }
+    };
+
+    el("monitor").onchange = () => {
+      settings.monitor = el("monitor").value;
+      render();
+      save();
+    };
+    for (const side of ["a", "b"]) {
+      el(side).onchange = () => {
+        settings[side] = Number(el(side).value);
+        save();
+      };
+    }
+    // The plugin keeps only what the key font can draw, in upper case.
+    let labelTimer;
+    for (const [id, fallback] of [["labelA", "PC"], ["labelB", "USB-C"]]) {
+      el(id).oninput = () => {
+        clearTimeout(labelTimer);
+        labelTimer = setTimeout(() => {
+          settings[id] = el(id).value.trim().toUpperCase() || fallback;
+          save();
+        }, 400);
+      };
+    }
+  </script>
+</body>
+</html>
